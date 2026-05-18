@@ -1,5 +1,6 @@
 import math
 from datetime import datetime
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
@@ -12,21 +13,52 @@ from app.services.weather import fetch_weather
 router = APIRouter(prefix="/api", tags=["weather"])
 
 
+def convert_units(cached: WeatherData, target_unit: str) -> WeatherData:
+    """Convert weather data from metric to imperial or vice versa."""
+    if cached.unit == target_unit:
+        return cached
+
+    if target_unit == "imperial":
+        temperature = cached.temperature * 9 / 5 + 32
+        feels_like = cached.feels_like * 9 / 5 + 32
+        wind_speed = round(cached.wind_speed * 2.237, 2)
+    else:
+        temperature = (cached.temperature - 32) * 5 / 9
+        feels_like = (cached.feels_like - 32) * 5 / 9
+        wind_speed = round(cached.wind_speed / 2.237, 2)
+
+    return WeatherData(
+        city=cached.city,
+        temperature=round(temperature, 1),
+        feels_like=round(feels_like, 1),
+        description=cached.description,
+        humidity=cached.humidity,
+        wind_speed=wind_speed,
+        unit=target_unit,
+    )
+
+
 @router.get("/weather", response_model=WeatherQueryResponse)
-async def get_weather(city: str, db: Session = Depends(get_db)):
+async def get_weather(
+    city: str,
+    unit: Literal["metric", "imperial"] = Query("metric"),
+    db: Session = Depends(get_db),
+):
     cached = crud.get_recent_query(db, city)
     if cached:
-        weather_data = WeatherData(
+        cached_data = WeatherData(
             city=cached.city,
             temperature=cached.temperature,
             feels_like=cached.feels_like,
             description=cached.description,
             humidity=cached.humidity,
             wind_speed=cached.wind_speed,
+            unit=cached.unit,
         )
+        weather_data = convert_units(cached_data, unit)
         return crud.save_query(db, weather_data, from_cache=True)
 
-    weather_data = await fetch_weather(city)
+    weather_data = await fetch_weather(city, unit)
     return crud.save_query(db, weather_data, from_cache=False)
 
 

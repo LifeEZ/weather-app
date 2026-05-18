@@ -10,6 +10,7 @@ class WeatherData(BaseModel):
     description: str
     humidity: int
     wind_speed: float
+    unit: str = "metric"
 
 
 class WeatherQueryResponse(WeatherData):

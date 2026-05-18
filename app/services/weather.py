@@ -7,11 +7,11 @@ from app.schemas import WeatherData
 OPENWEATHERMAP_URL = "https://api.openweathermap.org/data/2.5/weather"
 
 
-async def fetch_weather(city: str) -> WeatherData:
+async def fetch_weather(city: str, unit: str = "metric") -> WeatherData:
     params = {
         "q": city,
         "appid": settings.openweathermap_api_key,
-        "units": "metric",
+        "units": unit,
     }
 
     async with httpx.AsyncClient() as client:
@@ -33,4 +33,5 @@ async def fetch_weather(city: str) -> WeatherData:
         description=data["weather"][0]["description"],
         humidity=data["main"]["humidity"],
         wind_speed=data["wind"]["speed"],
+        unit=unit,
     )

@@ -20,3 +20,4 @@ class WeatherQuery(Base):
         DateTime, default=datetime.now, nullable=False
     )
     from_cache: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    unit: Mapped[str] = mapped_column(String, default="metric", nullable=False)
