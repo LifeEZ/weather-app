@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Weather App</title>
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+    rel="stylesheet"
+  />
+  <style>
+    body {
+      background-color: #f0f4f8;
+    }
+    .weather-card {
+      background: linear-gradient(135deg, #4a90d9, #1a5fa8);
+      color: white;
+      border-radius: 16px;
+    }
+    .weather-card .label {
+      font-size: 0.8rem;
+      opacity: 0.75;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .weather-card .value {
+      font-size: 1.1rem;
+      font-weight: 600;
+    }
+    .temp-display {
+      font-size: 3.5rem;
+      font-weight: 700;
+      line-height: 1;
+    }
+  </style>
+</head>
+<body>
+  <div class="container py-5" style="max-width: 760px;">
+    <h1 class="mb-1 fw-bold">Weather App</h1>
+    <p class="text-muted mb-4">Enter a city name to get the current weather.</p>
+
+    <!-- Search -->
+    <div class="input-group mb-4 shadow-sm">
+      <input
+        id="cityInput"
+        type="text"
+        class="form-control form-control-lg"
+        placeholder="e.g. London, Tokyo, New York"
+      />
+      <button class="btn btn-primary px-4" id="searchBtn">Search</button>
+    </div>
+
+    <!-- Error -->
+    <div id="errorAlert" class="alert alert-danger d-none" role="alert"></div>
+
+    <!-- Weather result card -->
+    <div id="weatherCard" class="weather-card p-4 mb-5 shadow d-none">
+      <div class="d-flex justify-content-between align-items-start">
+        <div>
+          <h2 class="mb-0 fw-bold" id="cardCity"></h2>
+          <p class="mb-3 text-white-50" id="cardDescription"></p>
+          <div class="temp-display mb-3" id="cardTemp"></div>
+        </div>
+      </div>
+      <div class="row g-3">
+        <div class="col-4">
+          <div class="label">Feels like</div>
+          <div class="value" id="cardFeelsLike"></div>
+        </div>
+        <div class="col-4">
+          <div class="label">Humidity</div>
+          <div class="value" id="cardHumidity"></div>
+        </div>
+        <div class="col-4">
+          <div class="label">Wind speed</div>
+          <div class="value" id="cardWind"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- History -->
+    <h4 class="mb-3 fw-semibold">Query History</h4>
+    <div id="historyEmpty" class="text-muted fst-italic mb-3 d-none">No queries yet.</div>
+    <div class="table-responsive shadow-sm rounded">
+      <table class="table table-hover bg-white mb-0" id="historyTable">
+        <thead class="table-light">
+          <tr>
+            <th>City</th>
+            <th>Temp (°C)</th>
+            <th>Description</th>
+            <th>Humidity</th>
+            <th>Wind (m/s)</th>
+            <th>Queried at</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="historyBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    const cityInput = document.getElementById("cityInput");
+    const searchBtn = document.getElementById("searchBtn");
+    const errorAlert = document.getElementById("errorAlert");
+    const weatherCard = document.getElementById("weatherCard");
+    const historyBody = document.getElementById("historyBody");
+    const historyEmpty = document.getElementById("historyEmpty");
+    const historyTable = document.getElementById("historyTable");
+
+    function showError(msg) {
+      errorAlert.textContent = msg;
+      errorAlert.classList.remove("d-none");
+    }
+
+    function hideError() {
+      errorAlert.classList.add("d-none");
+    }
+
+    function formatDate(isoString) {
+      const d = new Date(isoString);
+      return d.toLocaleString();
+    }
+
+    function renderWeatherCard(data) {
+      document.getElementById("cardCity").textContent = data.city;
+      document.getElementById("cardDescription").textContent =
+        data.description.charAt(0).toUpperCase() + data.description.slice(1);
+      document.getElementById("cardTemp").textContent = `${data.temperature.toFixed(1)} °C`;
+      document.getElementById("cardFeelsLike").textContent = `${data.feels_like.toFixed(1)} °C`;
+      document.getElementById("cardHumidity").textContent = `${data.humidity}%`;
+      document.getElementById("cardWind").textContent = `${data.wind_speed} m/s`;
+      weatherCard.classList.remove("d-none");
+    }
+
+    function renderHistory(entries) {
+      historyBody.innerHTML = "";
+      if (entries.length === 0) {
+        historyEmpty.classList.remove("d-none");
+        historyTable.classList.add("d-none");
+        return;
+      }
+      historyEmpty.classList.add("d-none");
+      historyTable.classList.remove("d-none");
+
+      entries.forEach((entry) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td class="fw-semibold">${entry.city}</td>
+          <td>${entry.temperature.toFixed(1)}</td>
+          <td>${entry.description}</td>
+          <td>${entry.humidity}%</td>
+          <td>${entry.wind_speed}</td>
+          <td>${formatDate(entry.queried_at)}</td>
+          <td>
+            <button class="btn btn-sm btn-outline-danger" data-id="${entry.id}">
+              Delete
+            </button>
+          </td>
+        `;
+        tr.querySelector("button").addEventListener("click", () =>
+          deleteEntry(entry.id)
+        );
+        historyBody.appendChild(tr);
+      });
+    }
+
+    async function loadHistory() {
+      const res = await fetch("/api/history");
+      const data = await res.json();
+      renderHistory(data);
+    }
+
+    async function searchWeather() {
+      const city = cityInput.value.trim();
+      if (!city) return;
+
+      hideError();
+      searchBtn.disabled = true;
+      searchBtn.textContent = "Loading…";
+
+      try {
+        const res = await fetch(
+          `/api/weather?city=${encodeURIComponent(city)}`
+        );
+        const data = await res.json();
+
+        if (!res.ok) {
+          showError(data.detail || "Something went wrong.");
+          weatherCard.classList.add("d-none");
+        } else {
+          renderWeatherCard(data);
+          await loadHistory();
+        }
+      } catch {
+        showError("Could not reach the server.");
+      } finally {
+        searchBtn.disabled = false;
+        searchBtn.textContent = "Search";
+      }
+    }
+
+    async function deleteEntry(id) {
+      await fetch(`/api/history/${id}`, { method: "DELETE" });
+      await loadHistory();
+    }
+
+    searchBtn.addEventListener("click", searchWeather);
+    cityInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") searchWeather();
+    });
+
+    loadHistory();
+  </script>
+</body>
+</html>
