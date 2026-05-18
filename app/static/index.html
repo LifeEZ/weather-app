@@ -35,7 +35,7 @@
   </style>
 </head>
 <body>
-  <div class="container py-5" style="max-width: 760px;">
+  <div class="container py-5" style="max-width: 860px;">
     <h1 class="mb-1 fw-bold">Weather App</h1>
     <p class="text-muted mb-4">Enter a city name to get the current weather.</p>
 
@@ -79,8 +79,35 @@
     </div>
 
     <!-- History -->
-    <h4 class="mb-3 fw-semibold">Query History</h4>
-    <div id="historyEmpty" class="text-muted fst-italic mb-3 d-none">No queries yet.</div>
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h4 class="mb-0 fw-semibold">Query History</h4>
+    </div>
+
+    <!-- Filters -->
+    <div class="card shadow-sm mb-3">
+      <div class="card-body py-3">
+        <div class="row g-2 align-items-end">
+          <div class="col-md-4">
+            <label class="form-label small text-muted mb-1">City</label>
+            <input id="filterCity" type="text" class="form-control" placeholder="Filter by city" />
+          </div>
+          <div class="col-md-3">
+            <label class="form-label small text-muted mb-1">From</label>
+            <input id="filterFrom" type="date" class="form-control" />
+          </div>
+          <div class="col-md-3">
+            <label class="form-label small text-muted mb-1">To</label>
+            <input id="filterTo" type="date" class="form-control" />
+          </div>
+          <div class="col-md-2 d-flex gap-2">
+            <button class="btn btn-primary w-100" id="filterBtn">Filter</button>
+            <button class="btn btn-outline-secondary w-100" id="clearBtn">Clear</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="historyEmpty" class="text-muted fst-italic mb-3 d-none">No queries found.</div>
     <div class="table-responsive shadow-sm rounded">
       <table class="table table-hover bg-white mb-0" id="historyTable">
         <thead class="table-light">
@@ -97,6 +124,14 @@
         <tbody id="historyBody"></tbody>
       </table>
     </div>
+
+    <!-- Pagination -->
+    <div id="paginationWrapper" class="d-flex justify-content-between align-items-center mt-3 d-none">
+      <small id="paginationInfo" class="text-muted"></small>
+      <nav>
+        <ul class="pagination pagination-sm mb-0" id="paginationControls"></ul>
+      </nav>
+    </div>
   </div>
 
   <script>
@@ -107,6 +142,15 @@
     const historyBody = document.getElementById("historyBody");
     const historyEmpty = document.getElementById("historyEmpty");
     const historyTable = document.getElementById("historyTable");
+    const paginationWrapper = document.getElementById("paginationWrapper");
+    const paginationInfo = document.getElementById("paginationInfo");
+    const paginationControls = document.getElementById("paginationControls");
+    const filterCity = document.getElementById("filterCity");
+    const filterFrom = document.getElementById("filterFrom");
+    const filterTo = document.getElementById("filterTo");
+
+    let currentPage = 1;
+    const PAGE_SIZE = 10;
 
     function showError(msg) {
       errorAlert.textContent = msg;
@@ -118,8 +162,7 @@
     }
 
     function formatDate(isoString) {
-      const d = new Date(isoString);
-      return d.toLocaleString();
+      return new Date(isoString).toLocaleString();
     }
 
     function renderWeatherCard(data) {
@@ -133,17 +176,67 @@
       weatherCard.classList.remove("d-none");
     }
 
-    function renderHistory(entries) {
-      historyBody.innerHTML = "";
-      if (entries.length === 0) {
-        historyEmpty.classList.remove("d-none");
-        historyTable.classList.add("d-none");
+    function renderPagination(total, page, pages) {
+      paginationControls.innerHTML = "";
+
+      if (pages <= 1) {
+        paginationWrapper.classList.add("d-none");
         return;
       }
+
+      paginationWrapper.classList.remove("d-none");
+      paginationInfo.textContent = `${total} result${total !== 1 ? "s" : ""}, page ${page} of ${pages}`;
+
+      const prevLi = document.createElement("li");
+      prevLi.className = `page-item ${page === 1 ? "disabled" : ""}`;
+      prevLi.innerHTML = `<a class="page-link" href="#">&laquo;</a>`;
+      prevLi.addEventListener("click", (e) => {
+        e.preventDefault();
+        if (page > 1) loadHistory(page - 1);
+      });
+      paginationControls.appendChild(prevLi);
+
+      const maxVisible = 5;
+      let start = Math.max(1, page - Math.floor(maxVisible / 2));
+      let end = Math.min(pages, start + maxVisible - 1);
+      if (end - start < maxVisible - 1) start = Math.max(1, end - maxVisible + 1);
+
+      for (let i = start; i <= end; i++) {
+        const li = document.createElement("li");
+        li.className = `page-item ${i === page ? "active" : ""}`;
+        li.innerHTML = `<a class="page-link" href="#">${i}</a>`;
+        const pageNum = i;
+        li.addEventListener("click", (e) => {
+          e.preventDefault();
+          loadHistory(pageNum);
+        });
+        paginationControls.appendChild(li);
+      }
+
+      const nextLi = document.createElement("li");
+      nextLi.className = `page-item ${page === pages ? "disabled" : ""}`;
+      nextLi.innerHTML = `<a class="page-link" href="#">&raquo;</a>`;
+      nextLi.addEventListener("click", (e) => {
+        e.preventDefault();
+        if (page < pages) loadHistory(page + 1);
+      });
+      paginationControls.appendChild(nextLi);
+    }
+
+    function renderHistory(data) {
+      historyBody.innerHTML = "";
+
+      if (data.items.length === 0) {
+        historyEmpty.classList.remove("d-none");
+        historyTable.classList.add("d-none");
+        paginationWrapper.classList.add("d-none");
+        return;
+      }
+
       historyEmpty.classList.add("d-none");
       historyTable.classList.remove("d-none");
 
-      entries.forEach((entry) => {
+      data.items.forEach((entry) => {
         const tr = document.createElement("tr");
         tr.innerHTML = `
           <td class="fw-semibold">${entry.city}</td>
@@ -153,9 +246,7 @@
           <td>${entry.wind_speed}</td>
           <td>${formatDate(entry.queried_at)}</td>
           <td>
-            <button class="btn btn-sm btn-outline-danger" data-id="${entry.id}">
-              Delete
-            </button>
+            <button class="btn btn-sm btn-outline-danger" data-id="${entry.id}">Delete</button>
           </td>
         `;
         tr.querySelector("button").addEventListener("click", () =>
@@ -163,10 +254,26 @@
         );
         historyBody.appendChild(tr);
       });
+
+      renderPagination(data.total, data.page, data.pages);
     }
 
-    async function loadHistory() {
-      const res = await fetch("/api/history");
+    async function loadHistory(page = 1) {
+      currentPage = page;
+      const params = new URLSearchParams({
+        page,
+        page_size: PAGE_SIZE,
+      });
+
+      const city = filterCity.value.trim();
+      const from = filterFrom.value;
+      const to = filterTo.value;
+
+      if (city) params.set("city", city);
+      if (from) params.set("date_from", from);
+      if (to) params.set("date_to", to + "T23:59:59");
+
+      const res = await fetch(`/api/history?${params}`);
       const data = await res.json();
       renderHistory(data);
     }
@@ -180,9 +287,7 @@
       searchBtn.textContent = "Loading…";
 
       try {
-        const res = await fetch(
-          `/api/weather?city=${encodeURIComponent(city)}`
-        );
+        const res = await fetch(`/api/weather?city=${encodeURIComponent(city)}`);
         const data = await res.json();
 
         if (!res.ok) {
@@ -190,7 +295,7 @@
           weatherCard.classList.add("d-none");
         } else {
           renderWeatherCard(data);
-          await loadHistory();
+          await loadHistory(1);
         }
       } catch {
         showError("Could not reach the server.");
@@ -202,15 +307,22 @@
 
     async function deleteEntry(id) {
       await fetch(`/api/history/${id}`, { method: "DELETE" });
-      await loadHistory();
+      await loadHistory(currentPage);
     }
 
     searchBtn.addEventListener("click", searchWeather);
     cityInput.addEventListener("keydown", (e) => {
       if (e.key === "Enter") searchWeather();
     });
+    document.getElementById("filterBtn").addEventListener("click", () => loadHistory(1));
+    document.getElementById("clearBtn").addEventListener("click", () => {
+      filterCity.value = "";
+      filterFrom.value = "";
+      filterTo.value = "";
+      loadHistory(1);
+    });
 
-    loadHistory();
+    loadHistory(1);
   </script>
 </body>
 </html>
