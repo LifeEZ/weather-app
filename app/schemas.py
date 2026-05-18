@@ -17,3 +17,11 @@ class WeatherQueryResponse(WeatherData):
     queried_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class PaginatedHistory(BaseModel):
+    items: list[WeatherQueryResponse]
+    total: int
+    page: int
+    page_size: int
+    pages: int
