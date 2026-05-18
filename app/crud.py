@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -7,8 +7,25 @@ from app.models import WeatherQuery
 from app.schemas import WeatherData
 
 
-def save_query(db: Session, data: WeatherData) -> WeatherQuery:
-    record = WeatherQuery(**data.model_dump())
+def get_recent_query(
+    db: Session, city: str, minutes: int = 5
+) -> WeatherQuery | None:
+    cutoff = datetime.now() - timedelta(minutes=minutes)
+    return (
+        db.query(WeatherQuery)
+        .filter(
+            func.lower(WeatherQuery.city) == city.lower(),
+            WeatherQuery.queried_at >= cutoff,
+        )
+        .order_by(WeatherQuery.queried_at.desc())
+        .first()
+    )
+
+
+def save_query(
+    db: Session, data: WeatherData, from_cache: bool = False
+) -> WeatherQuery:
+    record = WeatherQuery(**data.model_dump(), from_cache=from_cache)
     db.add(record)
     db.commit()
     db.refresh(record)

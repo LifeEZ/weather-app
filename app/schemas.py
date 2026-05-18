@@ -15,6 +15,7 @@ class WeatherData(BaseModel):
 class WeatherQueryResponse(WeatherData):
     id: int
     queried_at: datetime
+    from_cache: bool
 
     model_config = {"from_attributes": True}
 
