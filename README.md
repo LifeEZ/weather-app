@@ -25,8 +25,8 @@ Requires **Python 3.13** and **Docker Desktop**.
 ## Quickstart
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/YOUR_REPO_NAME.git
-cd YOUR_REPO_NAME
+git clone https://github.com/LifeEZ/weather-app
+cd weather-app
 cp .env.example .env        # Windows: copy .env.example .env
 # open .env and add your OpenWeatherMap API key
 docker compose up --build
