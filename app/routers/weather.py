@@ -11,6 +11,7 @@ from slowapi.util import get_remote_address
 from sqlalchemy.orm import Session
 
 from app import crud
+from app.config import settings
 from app.database import get_db
 from app.schemas import PaginatedHistory, WeatherData, WeatherQueryResponse
 from app.services.weather import fetch_weather
@@ -46,7 +47,7 @@ def convert_units(cached: WeatherData, target_unit: str) -> WeatherData:
 
 
 @router.get("/weather", response_model=WeatherQueryResponse)
-@limiter.limit("30/minute")
+@limiter.limit(settings.rate_limit)
 async def get_weather(
     request: Request,
     city: str,
