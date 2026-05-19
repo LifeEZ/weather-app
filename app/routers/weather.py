@@ -100,7 +100,9 @@ def get_history(
 
 
 @router.get("/history/export")
-def export_history(
+@limiter.limit("10/minute")
+async def export_history(
+    request: Request,
     db: Session = Depends(get_db),
     city: str | None = Query(None),
     date_from: datetime | None = Query(None),
