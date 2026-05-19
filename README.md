@@ -25,7 +25,7 @@ Requires **Python 3.13** and **Docker Desktop**.
 ## Quickstart
 
 ```bash
-git clone https://github.com/LifeEZ/weather-app
+git clone https://github.com/LifeEZ/weather-app.git
 cd weather-app
 cp .env.example .env        # Windows: copy .env.example .env
 # open .env and add your OpenWeatherMap API key
