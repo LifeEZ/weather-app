@@ -50,10 +50,11 @@ def convert_units(cached: WeatherData, target_unit: str) -> WeatherData:
 @limiter.limit(settings.rate_limit)
 async def get_weather(
     request: Request,
-    city: str,
+    city: str = Query(min_length=1, max_length=100),
     unit: Literal["metric", "imperial"] = Query("metric"),
     db: Session = Depends(get_db),
 ):
+    city = city.strip()
     cached = crud.get_recent_query(db, city)
     if cached:
         cached_data = WeatherData(
@@ -105,21 +106,29 @@ def export_history(
     date_from: datetime | None = Query(None),
     date_to: datetime | None = Query(None),
 ):
-    rows = crud.get_all_history(db, city=city, date_from=date_from, date_to=date_to)
+    rows = crud.get_all_history(
+        db, city=city, date_from=date_from, date_to=date_to
+    )
 
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(["id", "city", "temperature", "feels_like", "description",
-                     "humidity", "wind_speed", "unit", "from_cache", "queried_at"])
+    writer.writerow([
+        "id", "city", "temperature", "feels_like", "description",
+        "humidity", "wind_speed", "unit", "from_cache", "queried_at",
+    ])
     for r in rows:
-        writer.writerow([r.id, r.city, r.temperature, r.feels_like, r.description,
-                         r.humidity, r.wind_speed, r.unit, r.from_cache, r.queried_at])
+        writer.writerow([
+            r.id, r.city, r.temperature, r.feels_like, r.description,
+            r.humidity, r.wind_speed, r.unit, r.from_cache, r.queried_at,
+        ])
 
     output.seek(0)
     return StreamingResponse(
         iter([output.getvalue()]),
         media_type="text/csv",
-        headers={"Content-Disposition": "attachment; filename=weather_history.csv"},
+        headers={
+            "Content-Disposition": "attachment; filename=weather_history.csv"
+        },
     )
 
 

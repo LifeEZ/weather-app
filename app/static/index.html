@@ -277,21 +277,40 @@
       data.items.forEach((entry) => {
         const tr = document.createElement("tr");
         const sym = unitSymbols(entry.unit);
-        tr.innerHTML = `
-          <td class="fw-semibold">${entry.city}</td>
-          <td>${entry.temperature.toFixed(1)} ${sym.temp}</td>
-          <td>${entry.description}</td>
-          <td>${entry.humidity}%</td>
-          <td>${entry.wind_speed} ${sym.wind}</td>
-          <td>${formatDate(entry.queried_at)}</td>
-          <td>${entry.from_cache ? '<span class="badge bg-warning text-dark">Cached</span>' : '<span class="badge bg-success">Live</span>'}</td>
-          <td>
-            <button class="btn btn-sm btn-outline-danger" data-id="${entry.id}">Delete</button>
-          </td>
-        `;
-        tr.querySelector("button").addEventListener("click", () =>
-          deleteEntry(entry.id)
-        );
+
+        const cells = [
+          { text: entry.city, cls: "fw-semibold" },
+          { text: `${entry.temperature.toFixed(1)} ${sym.temp}` },
+          { text: entry.description },
+          { text: `${entry.humidity}%` },
+          { text: `${entry.wind_speed} ${sym.wind}` },
+          { text: formatDate(entry.queried_at) },
+        ];
+
+        cells.forEach(({ text, cls }) => {
+          const td = document.createElement("td");
+          td.textContent = text;
+          if (cls) td.className = cls;
+          tr.appendChild(td);
+        });
+
+        const badgeTd = document.createElement("td");
+        const badge = document.createElement("span");
+        badge.textContent = entry.from_cache ? "Cached" : "Live";
+        badge.className = entry.from_cache
+          ? "badge bg-warning text-dark"
+          : "badge bg-success";
+        badgeTd.appendChild(badge);
+        tr.appendChild(badgeTd);
+
+        const actionTd = document.createElement("td");
+        const btn = document.createElement("button");
+        btn.textContent = "Delete";
+        btn.className = "btn btn-sm btn-outline-danger";
+        btn.addEventListener("click", () => deleteEntry(entry.id));
+        actionTd.appendChild(btn);
+        tr.appendChild(actionTd);
+
         fragment.appendChild(tr);
       });
 
