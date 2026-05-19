@@ -1,15 +1,13 @@
 from datetime import datetime, timedelta
 
 from sqlalchemy import func
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Query, Session
 
 from app.models import WeatherQuery
 from app.schemas import WeatherData
 
 
-def get_recent_query(
-    db: Session, city: str, minutes: int = 5
-) -> WeatherQuery | None:
+def get_recent_query(db: Session, city: str, minutes: int = 5) -> WeatherQuery | None:
     cutoff = datetime.now() - timedelta(minutes=minutes)
     return (
         db.query(WeatherQuery)
@@ -32,6 +30,21 @@ def save_query(
     return record
 
 
+def _apply_history_filters(
+    query: Query,
+    city: str | None,
+    date_from: datetime | None,
+    date_to: datetime | None,
+) -> Query:
+    if city:
+        query = query.filter(func.lower(WeatherQuery.city).contains(city.lower()))
+    if date_from:
+        query = query.filter(WeatherQuery.queried_at >= date_from)
+    if date_to:
+        query = query.filter(WeatherQuery.queried_at <= date_to)
+    return query
+
+
 def get_history(
     db: Session,
     page: int = 1,
@@ -40,15 +53,7 @@ def get_history(
     date_from: datetime | None = None,
     date_to: datetime | None = None,
 ) -> tuple[list[WeatherQuery], int]:
-    query = db.query(WeatherQuery)
-
-    if city:
-        query = query.filter(func.lower(WeatherQuery.city).contains(city.lower()))
-    if date_from:
-        query = query.filter(WeatherQuery.queried_at >= date_from)
-    if date_to:
-        query = query.filter(WeatherQuery.queried_at <= date_to)
-
+    query = _apply_history_filters(db.query(WeatherQuery), city, date_from, date_to)
     total = query.count()
     items = (
         query.order_by(WeatherQuery.queried_at.desc())
@@ -57,6 +62,16 @@ def get_history(
         .all()
     )
     return items, total
+
+
+def get_all_history(
+    db: Session,
+    city: str | None = None,
+    date_from: datetime | None = None,
+    date_to: datetime | None = None,
+) -> list[WeatherQuery]:
+    query = _apply_history_filters(db.query(WeatherQuery), city, date_from, date_to)
+    return query.order_by(WeatherQuery.queried_at.desc()).all()
 
 
 def delete_query(db: Session, query_id: int) -> bool:

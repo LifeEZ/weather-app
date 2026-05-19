@@ -1,8 +1,11 @@
+import csv
+import io
 import math
 from datetime import datetime
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.responses import StreamingResponse
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from sqlalchemy.orm import Session
@@ -91,6 +94,31 @@ def get_history(
         page=page,
         page_size=page_size,
         pages=math.ceil(total / page_size) if total > 0 else 1,
+    )
+
+
+@router.get("/history/export")
+def export_history(
+    db: Session = Depends(get_db),
+    city: str | None = Query(None),
+    date_from: datetime | None = Query(None),
+    date_to: datetime | None = Query(None),
+):
+    rows = crud.get_all_history(db, city=city, date_from=date_from, date_to=date_to)
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["id", "city", "temperature", "feels_like", "description",
+                     "humidity", "wind_speed", "unit", "from_cache", "queried_at"])
+    for r in rows:
+        writer.writerow([r.id, r.city, r.temperature, r.feels_like, r.description,
+                         r.humidity, r.wind_speed, r.unit, r.from_cache, r.queried_at])
+
+    output.seek(0)
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=weather_history.csv"},
     )
 
 
