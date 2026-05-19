@@ -43,10 +43,18 @@
     <p class="text-muted mb-4">Enter a city name to get the current weather.</p>
 
     <!-- Search -->
-    <div class="input-group mb-4 shadow-sm">
-      <input id="cityInput" type="text" class="form-control form-control-lg"
-        placeholder="e.g. London, Tokyo, New York" />
-      <button class="btn btn-primary px-4" id="searchBtn">Search</button>
+    <div class="d-flex gap-2 mb-4">
+      <div class="input-group shadow-sm">
+        <input id="cityInput" type="text" class="form-control form-control-lg"
+          placeholder="e.g. London, Tokyo, New York" />
+        <button class="btn btn-primary px-4" id="searchBtn">Search</button>
+      </div>
+      <div class="btn-group shadow-sm" role="group" aria-label="Unit toggle">
+        <input type="radio" class="btn-check" name="unitToggle" id="unitMetric" value="metric" checked />
+        <label class="btn btn-outline-secondary btn-lg" for="unitMetric">°C</label>
+        <input type="radio" class="btn-check" name="unitToggle" id="unitImperial" value="imperial" />
+        <label class="btn btn-outline-secondary btn-lg" for="unitImperial">°F</label>
+      </div>
     </div>
 
     <!-- Error -->
@@ -115,10 +123,10 @@
         <thead class="table-light">
           <tr>
             <th>City</th>
-            <th>Temp (°C)</th>
+            <th>Temp</th>
             <th>Description</th>
             <th>Humidity</th>
-            <th>Wind (m/s)</th>
+            <th>Wind</th>
             <th>Queried at</th>
             <th>Source</th>
             <th></th>
@@ -160,6 +168,17 @@
     const filterFrom = document.getElementById("filterFrom");
     const filterTo = document.getElementById("filterTo");
 
+    function selectedUnit() {
+      return document.querySelector('input[name="unitToggle"]:checked').value;
+    }
+
+    function unitSymbols(unit) {
+      return {
+        temp: unit === "metric" ? "°C" : "°F",
+        wind: unit === "metric" ? "m/s" : "mph",
+      };
+    }
+
     let currentPage = 1;
     const pageSizeSelect = document.getElementById("pageSizeSelect");
 
@@ -177,13 +196,14 @@
     }
 
     function renderWeatherCard(data) {
+      const sym = unitSymbols(data.unit);
       document.getElementById("cardCity").textContent = data.city;
       document.getElementById("cardDescription").textContent =
         data.description.charAt(0).toUpperCase() + data.description.slice(1);
-      document.getElementById("cardTemp").textContent = `${data.temperature.toFixed(1)} °C`;
-      document.getElementById("cardFeelsLike").textContent = `${data.feels_like.toFixed(1)} °C`;
+      document.getElementById("cardTemp").textContent = `${data.temperature.toFixed(1)} ${sym.temp}`;
+      document.getElementById("cardFeelsLike").textContent = `${data.feels_like.toFixed(1)} ${sym.temp}`;
       document.getElementById("cardHumidity").textContent = `${data.humidity}%`;
-      document.getElementById("cardWind").textContent = `${data.wind_speed} m/s`;
+      document.getElementById("cardWind").textContent = `${data.wind_speed} ${sym.wind}`;
       const cacheBadge = document.getElementById("cacheBadge");
       data.from_cache
         ? cacheBadge.classList.remove("d-none")
@@ -254,12 +274,13 @@
 
       data.items.forEach((entry) => {
         const tr = document.createElement("tr");
+        const sym = unitSymbols(entry.unit);
         tr.innerHTML = `
           <td class="fw-semibold">${entry.city}</td>
-          <td>${entry.temperature.toFixed(1)}</td>
+          <td>${entry.temperature.toFixed(1)} ${sym.temp}</td>
           <td>${entry.description}</td>
           <td>${entry.humidity}%</td>
-          <td>${entry.wind_speed}</td>
+          <td>${entry.wind_speed} ${sym.wind}</td>
           <td>${formatDate(entry.queried_at)}</td>
           <td>${entry.from_cache ? '<span class="badge bg-warning text-dark">Cached</span>' : '<span class="badge bg-success">Live</span>'}</td>
           <td>
@@ -304,7 +325,7 @@
       searchBtn.textContent = "Loading…";
 
       try {
-        const res = await fetch(`/api/weather?city=${encodeURIComponent(city)}`);
+        const res = await fetch(`/api/weather?city=${encodeURIComponent(city)}&unit=${selectedUnit()}`);
         const data = await res.json();
 
         if (!res.ok) {
