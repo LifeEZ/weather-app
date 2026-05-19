@@ -19,40 +19,49 @@ app.state.limiter = limiter
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
     start = time.time()
-    logger.info("", extra={
-        "event": "request_start",
-        "method": request.method,
-        "path": request.url.path,
-        "client_ip": request.client.host if request.client else "unknown",
-    })
+    logger.info(
+        "",
+        extra={
+            "event": "request_start",
+            "method": request.method,
+            "path": request.url.path,
+            "client_ip": request.client.host if request.client else "unknown",
+        },
+    )
 
     response = await call_next(request)
 
     duration_ms = round((time.time() - start) * 1000)
-    logger.info("", extra={
-        "event": "request_end",
-        "method": request.method,
-        "path": request.url.path,
-        "status_code": response.status_code,
-        "duration_ms": duration_ms,
-    })
+    logger.info(
+        "",
+        extra={
+            "event": "request_end",
+            "method": request.method,
+            "path": request.url.path,
+            "status_code": response.status_code,
+            "duration_ms": duration_ms,
+        },
+    )
     return response
 
 
 @app.exception_handler(RateLimitExceeded)
 async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
-    logger.warning("", extra={
-        "event": "error",
-        "path": request.url.path,
-        "client_ip": request.client.host if request.client else "unknown",
-        "detail": "rate limit exceeded",
-        "status_code": 429,
-    })
+    logger.warning(
+        "",
+        extra={
+            "event": "error",
+            "path": request.url.path,
+            "client_ip": request.client.host if request.client else "unknown",
+            "detail": "rate limit exceeded",
+            "status_code": 429,
+        },
+    )
     return JSONResponse(
         status_code=429,
         content={
             "detail": (
-                "Too many requests. You can search up to 30 times per minute."
+                "Too many requests. You can search up to 30 times per minute.Please try again later."
             )
         },
     )
