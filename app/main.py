@@ -7,12 +7,8 @@ from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
-from app.database import engine
 from app.logger import logger
-from app.models import Base
 from app.routers import health, weather
-
-Base.metadata.create_all(bind=engine)
 
 limiter = Limiter(key_func=get_remote_address)
 
