@@ -101,18 +101,21 @@
             <label class="form-label small text-muted mb-1">City</label>
             <input id="filterCity" type="text" class="form-control" placeholder="Filter by city" />
           </div>
-          <div class="col-md-3">
+          <div class="col-md-4">
             <label class="form-label small text-muted mb-1">From</label>
             <input id="filterFrom" type="date" class="form-control" />
           </div>
-          <div class="col-md-3">
+          <div class="col-md-4">
             <label class="form-label small text-muted mb-1">To</label>
             <input id="filterTo" type="date" class="form-control" />
           </div>
-          <div class="col-md-2 d-flex gap-2">
-            <button class="btn btn-primary w-100" id="filterBtn">Filter</button>
-            <button class="btn btn-outline-secondary w-100" id="clearBtn">Clear</button>
+        </div>
+        <div class="d-flex justify-content-between align-items-center mt-2">
+          <div class="d-flex gap-2">
+            <button class="btn btn-primary" id="filterBtn">Filter</button>
+            <button class="btn btn-outline-secondary" id="clearBtn">Clear</button>
           </div>
+          <button class="btn btn-outline-success" id="exportBtn">&#8595; Export CSV</button>
         </div>
       </div>
     </div>
@@ -167,6 +170,10 @@
     const filterCity = document.getElementById("filterCity");
     const filterFrom = document.getElementById("filterFrom");
     const filterTo = document.getElementById("filterTo");
+
+    const today = new Date().toISOString().split("T")[0];
+    document.getElementById("filterFrom").max = today;
+    document.getElementById("filterTo").max = today;
 
     function selectedUnit() {
       return document.querySelector('input[name="unitToggle"]:checked').value;
@@ -224,9 +231,8 @@
 
       const prevLi = document.createElement("li");
       prevLi.className = `page-item ${page === 1 ? "disabled" : ""}`;
-      prevLi.innerHTML = `<a class="page-link" href="#">&laquo;</a>`;
-      prevLi.addEventListener("click", (e) => {
-        e.preventDefault();
+      prevLi.innerHTML = `<button class="page-link">&laquo;</button>`;
+      prevLi.querySelector("button").addEventListener("click", () => {
         if (page > 1) loadHistory(page - 1);
       });
       paginationControls.appendChild(prevLi);
@@ -239,31 +245,26 @@
       for (let i = start; i <= end; i++) {
         const li = document.createElement("li");
         li.className = `page-item ${i === page ? "active" : ""}`;
-        li.innerHTML = `<a class="page-link" href="#">${i}</a>`;
+        li.innerHTML = `<button class="page-link">${i}</button>`;
         const pageNum = i;
-        li.addEventListener("click", (e) => {
-          e.preventDefault();
-          loadHistory(pageNum);
-        });
+        li.querySelector("button").addEventListener("click", () => loadHistory(pageNum));
         paginationControls.appendChild(li);
       }
 
       const nextLi = document.createElement("li");
       nextLi.className = `page-item ${page === pages ? "disabled" : ""}`;
-      nextLi.innerHTML = `<a class="page-link" href="#">&raquo;</a>`;
-      nextLi.addEventListener("click", (e) => {
-        e.preventDefault();
+      nextLi.innerHTML = `<button class="page-link">&raquo;</button>`;
+      nextLi.querySelector("button").addEventListener("click", () => {
         if (page < pages) loadHistory(page + 1);
       });
       paginationControls.appendChild(nextLi);
     }
 
     function renderHistory(data) {
-      historyBody.innerHTML = "";
-
       if (data.items.length === 0) {
         historyEmpty.classList.remove("d-none");
         historyTable.classList.add("d-none");
+        historyBody.innerHTML = "";
         paginationControls.innerHTML = "";
         paginationWrapper.classList.add("d-none");
         return;
@@ -272,6 +273,7 @@
       historyEmpty.classList.add("d-none");
       historyTable.classList.remove("d-none");
 
+      const fragment = document.createDocumentFragment();
       data.items.forEach((entry) => {
         const tr = document.createElement("tr");
         const sym = unitSymbols(entry.unit);
@@ -290,8 +292,11 @@
         tr.querySelector("button").addEventListener("click", () =>
           deleteEntry(entry.id)
         );
-        historyBody.appendChild(tr);
+        fragment.appendChild(tr);
       });
+
+      historyBody.innerHTML = "";
+      historyBody.appendChild(fragment);
 
       renderPagination(data.total, data.page, data.pages);
     }
@@ -352,6 +357,17 @@
     cityInput.addEventListener("keydown", (e) => {
       if (e.key === "Enter") searchWeather();
     });
+    document.getElementById("exportBtn").addEventListener("click", () => {
+      const params = new URLSearchParams();
+      const city = filterCity.value.trim();
+      const from = filterFrom.value;
+      const to = filterTo.value;
+      if (city) params.set("city", city);
+      if (from) params.set("date_from", from);
+      if (to) params.set("date_to", to + "T23:59:59");
+      window.open(`/api/history/export?${params}`, "_blank");
+    });
+
     document.getElementById("filterBtn").addEventListener("click", () => loadHistory(1));
     document.getElementById("clearBtn").addEventListener("click", () => {
       filterCity.value = "";
